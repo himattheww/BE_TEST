@@ -1,147 +1,140 @@
 # Items API
 
-REST API berbasis Node.js dan TypeScript untuk memproses item pekerjaan proyek. Total per item dihitung dengan aritmetika desimal presisi di backend, lalu disimpan ke Supabase (PostgreSQL) bersama catatan audit.
+API kecil untuk menghitung dan menyimpan item pekerjaan proyek. Ditulis pakai Node.js, TypeScript, Express, dan Supabase (PostgreSQL).
 
-- `POST /api/v1/items/process` menerima daftar item, menghitung `total_price = volume x unit_price`, dan menyimpannya.
-- `POST /api/v1/webhook/ingest` menerima payload dari layanan pihak ketiga, mentransformasikannya, lalu menyimpannya dengan alur yang sama.
+Isinya cuma dua endpoint:
 
-## Teknologi
+- `POST /api/v1/items/process` menerima daftar item, menghitung `total_price = volume x unit_price`, lalu menyimpannya ke database.
+- `POST /api/v1/webhook/ingest` menerima payload dari sistem luar, mengubahnya ke format internal, lalu menyimpannya dengan cara yang sama.
 
-| Bagian | Pilihan |
+Setiap request yang berhasil dicatat juga di tabel `audit_logs`.
+
+## Stack
+
+Node.js 20, TypeScript, Express 5, Zod 4 (validasi), decimal.js (hitungan angka), `@supabase/supabase-js` (database), dan Vitest + Supertest (test).
+
+## Menjalankan di lokal
+
+Perlu Node.js 20 atau lebih baru, dan satu project Supabase.
+
+**1. Install dependency**
+
+```
+npm install
+```
+
+**2. Siapkan database**
+
+Buka SQL Editor di dashboard Supabase, lalu jalankan tiga file ini sesuai urutan:
+
+1. `supabase/migrations/20261009093000_init_schema.sql`
+2. `supabase/migrations/20261009100000_return_numerics_as_text.sql`
+3. `supabase/seed.sql` (isinya satu project contoh dengan id `0b8f6d6e-5c1a-4c3e-9a57-2f6a1d3b7e10`)
+
+**3. Isi `.env`**
+
+```
+cp .env.example .env
+```
+
+(di Windows: `copy .env.example .env`)
+
+| Variabel | Isi |
 |---|---|
-| Runtime | Node.js 20+ |
-| Bahasa | TypeScript |
-| HTTP | Express 5 |
-| Validasi | Zod 4 |
-| Kalkulasi | decimal.js |
-| Database | Supabase (PostgreSQL) lewat `@supabase/supabase-js` |
-| Test | Vitest, Supertest |
+| `SUPABASE_URL` | Project URL, misalnya `https://abcd1234.supabase.co` |
+| `SUPABASE_KEY` | Secret key dari Project Settings > API Keys. Hanya dipakai di backend, jangan sampai ikut ter-commit. |
+| `API_SECRET` | Token untuk autentikasi, minimal 16 karakter |
+| `PORT` | Opsional, defaultnya 3000 |
 
-## Menjalankan secara lokal
+Kalau butuh `API_SECRET` acak, tinggal jalankan ini:
 
-Prasyarat: Node.js 20 atau lebih baru dan sebuah project Supabase.
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-1. Install dependency.
+**4. Start server**
 
-   ```
-   npm install
-   ```
+```
+npm run dev
+```
 
-2. Siapkan database. Di dashboard Supabase buka **SQL Editor**, lalu jalankan isi file berikut secara berurutan:
+Server jalan di `http://localhost:3000`. Buka `GET /health` buat memastikan semuanya hidup.
 
-   1. `supabase/migrations/20261009093000_init_schema.sql`
-   2. `supabase/migrations/20261009100000_return_numerics_as_text.sql`
-   3. `supabase/seed.sql` (membuat satu project contoh dengan id `0b8f6d6e-5c1a-4c3e-9a57-2f6a1d3b7e10`)
+Perintah lain yang mungkin kepakai: `npm test` untuk semua test, `npm run typecheck` untuk cek tipe, dan `npm run build` lalu `npm start` untuk versi build.
 
-3. Buat file `.env` dari template, lalu isi nilainya.
-
-   ```
-   cp .env.example .env
-   ```
-
-   Di Windows: `copy .env.example .env`.
-
-   | Variabel | Keterangan |
-   |---|---|
-   | `SUPABASE_URL` | Project URL, misalnya `https://<project-ref>.supabase.co` |
-   | `SUPABASE_KEY` | Secret key (atau `service_role` key) dari Project Settings, API Keys. Hanya dipakai di backend. |
-   | `API_SECRET` | Token untuk header `Authorization: Bearer`, minimal 16 karakter |
-   | `PORT` | Opsional, default `3000` |
-
-   Contoh membuat `API_SECRET` acak:
-
-   ```
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-
-4. Jalankan server.
-
-   ```
-   npm run dev
-   ```
-
-   Server berjalan di `http://localhost:3000`. Cek dengan `GET /health`.
-
-Perintah lain:
-
-| Perintah | Fungsi |
-|---|---|
-| `npm test` | Menjalankan seluruh test |
-| `npm run typecheck` | Pemeriksaan tipe TypeScript |
-| `npm run build` | Build ke folder `dist/` |
-| `npm start` | Menjalankan hasil build |
-
-## Struktur project
+## Struktur folder
 
 ```
 src/
-  app.ts                 konfigurasi Express dan routing
-  server.ts              entry point
-  config/env.ts          validasi environment variable
-  db/supabase.ts         client Supabase
-  lib/                   money (decimal), errors, response
-  middleware/            auth, validate, error-handler
-  routes/                items, webhook
-  schemas/               aturan validasi Zod (amount, items, webhook)
-  services/              line-items (hitung dan simpan), webhook (transformasi)
-  repositories/          pemanggilan fungsi database
+  app.ts               setup Express dan routing
+  server.ts            entry point
+  config/env.ts        validasi environment variable
+  db/supabase.ts       client Supabase
+  lib/                 money (decimal), errors, response
+  middleware/          auth, validate, error-handler
+  routes/              items, webhook
+  schemas/             aturan validasi Zod
+  services/            hitung dan simpan item, transformasi webhook
+  repositories/        pemanggilan fungsi database
 supabase/
-  migrations/            skema dan fungsi insert atomic
-  seed.sql               project contoh
-tests/                   unit dan integration test
+  migrations/          skema dan fungsi insert
+  seed.sql             project contoh
+tests/
 docs/postman_collection.json
 ```
 
 ## Database
 
-Tiga tabel di schema `public`. Semua kolom uang memakai `NUMERIC`.
+Ada tiga tabel di schema `public`, dan semua kolom uang bertipe `NUMERIC`.
 
-**`projects`**
+**projects**
 
-| Kolom | Tipe | Keterangan |
+| Kolom | Tipe | Catatan |
 |---|---|---|
-| `id` | `uuid` | primary key |
-| `title` | `text` | tidak boleh kosong |
-| `client_name` | `text` | tidak boleh kosong |
-| `created_at` | `timestamptz` | default `now()` |
+| `id` | uuid | primary key |
+| `title` | text | tidak boleh kosong |
+| `client_name` | text | tidak boleh kosong |
+| `created_at` | timestamptz | default `now()` |
 
-**`line_items`**
+**line_items**
 
-| Kolom | Tipe | Keterangan |
+| Kolom | Tipe | Catatan |
 |---|---|---|
-| `id` | `uuid` | primary key |
-| `project_id` | `uuid` | foreign key ke `projects(id)`, `on delete cascade`, di-index |
-| `item_code` | `text` | tidak boleh kosong |
-| `description` | `text` | |
-| `volume` | `numeric(18,4)` | harus lebih dari 0 |
-| `unit` | `text` | opsional |
-| `unit_price` | `numeric(18,2)` | tidak boleh negatif |
-| `total_price` | `numeric(22,2)` | harus sama dengan `round(volume * unit_price, 2)` (constraint `line_items_total_price_matches`) |
-| `created_at` | `timestamptz` | default `now()` |
+| `id` | uuid | primary key |
+| `project_id` | uuid | foreign key ke `projects(id)`, `on delete cascade`, ada index |
+| `item_code` | text | tidak boleh kosong |
+| `description` | text | |
+| `volume` | numeric(18,4) | harus lebih dari 0 |
+| `unit` | text | opsional |
+| `unit_price` | numeric(18,2) | tidak boleh negatif |
+| `total_price` | numeric(22,2) | harus sama dengan `round(volume * unit_price, 2)` |
+| `created_at` | timestamptz | default `now()` |
 
-**`audit_logs`**
+**audit_logs**
 
-| Kolom | Tipe | Keterangan |
+| Kolom | Tipe | Catatan |
 |---|---|---|
-| `id` | `uuid` | primary key |
-| `action` | `text` | misalnya `items.process`, `webhook.ingest` |
-| `endpoint` | `text` | path yang dipanggil |
-| `payload_summary` | `jsonb` | ringkasan: jumlah item, grand total, project, id event |
-| `created_at` | `timestamptz` | di-index (urutan menurun) |
+| `id` | uuid | primary key |
+| `action` | text | `items.process` atau `webhook.ingest` |
+| `endpoint` | text | path yang dipanggil |
+| `payload_summary` | jsonb | jumlah item, grand total, project, dan id event (khusus webhook) |
+| `created_at` | timestamptz | ada index, urutan terbaru dulu |
 
-Fungsi `insert_line_items_with_audit` menyisipkan baris `audit_logs` dan seluruh `line_items` dalam satu transaksi. Jika salah satu gagal, tidak ada yang tersimpan. Fungsi ini hanya bisa dipanggil oleh `service_role`. Row Level Security aktif di semua tabel tanpa policy, jadi akses lewat anon key ditolak dan hanya backend (secret key) yang dapat membaca atau menulis.
+Insert ke `line_items` dan `audit_logs` dilakukan lewat satu fungsi PostgreSQL bernama `insert_line_items_with_audit`, jadi keduanya berhasil bersama atau gagal bersama. Fungsi ini hanya bisa dipanggil oleh `service_role`. RLS aktif di semua tabel dan sengaja tanpa policy, jadi akses dengan anon key akan ditolak dan hanya backend yang bisa baca atau tulis.
 
 ## API
 
-### Konvensi
+### Autentikasi dan format response
 
-Autentikasi memakai header `Authorization: Bearer <API_SECRET>`. Header `X-API-Key: <API_SECRET>` juga diterima.
+Kirim header `Authorization: Bearer <API_SECRET>`. Header `X-API-Key: <API_SECRET>` juga diterima.
 
-Semua respons memakai bentuk yang sama.
+Response sukses:
 
 ```json
 { "success": true, "data": {} }
 ```
+
+Response error:
 
 ```json
 {
@@ -154,32 +147,28 @@ Semua respons memakai bentuk yang sama.
 }
 ```
 
-Nilai uang (`volume`, `unit_price`, `total_price`, `grand_total`) dikembalikan sebagai **string** agar tidak kehilangan presisi saat di-parse oleh client.
+Semua nilai uang (`volume`, `unit_price`, `total_price`, `grand_total`) dikirim balik sebagai string, supaya presisinya tidak hilang waktu di-parse oleh client.
 
-| Status | `error.code` | Penyebab |
+| Status | `error.code` | Kapan muncul |
 |---|---|---|
-| 400 | `VALIDATION_ERROR` | Tipe salah (string/null), nilai negatif, nol untuk volume, desimal berlebih, field wajib hilang |
-| 400 | `INVALID_REQUEST_BODY` | Body bukan JSON yang valid |
-| 401 | `UNAUTHORIZED` | Header autentikasi hilang atau salah |
-| 404 | `PROJECT_NOT_FOUND` | `project_id` tidak ada di database |
-| 404 | `NOT_FOUND` | Route tidak ada |
-| 500 | `INTERNAL_ERROR` | Kesalahan tak terduga. Detail hanya ditulis ke log server. |
+| 400 | `VALIDATION_ERROR` | tipe salah (string atau null), angka negatif, volume 0, desimal kebanyakan, atau ada field wajib yang hilang |
+| 400 | `INVALID_REQUEST_BODY` | body bukan JSON yang valid |
+| 401 | `UNAUTHORIZED` | header autentikasi tidak ada atau salah |
+| 404 | `PROJECT_NOT_FOUND` | `project_id` tidak ditemukan di database |
+| 404 | `NOT_FOUND` | route tidak ada |
+| 500 | `INTERNAL_ERROR` | error yang tidak terduga. Pesannya sengaja dibuat umum, detailnya hanya masuk ke log server. |
 
 ### Aturan angka
 
-| Field | Aturan |
-|---|---|
-| `volume` | lebih dari 0, maksimal 4 desimal |
-| `unit_price` | 0 atau lebih, maksimal 2 desimal |
-| keduanya | maksimal 1.000.000.000 |
+- `volume`: lebih dari 0, maksimal 4 angka desimal
+- `unit_price`: 0 atau lebih, maksimal 2 angka desimal
+- keduanya tidak boleh lebih dari 1.000.000.000
 
-Nilai dengan desimal berlebih ditolak dengan 400, tidak dibulatkan diam-diam. `total_price` dibulatkan ke 2 desimal dengan aturan half-up.
+Angka dengan desimal berlebih langsung ditolak dengan 400 dan tidak dibulatkan diam-diam. Yang dibulatkan hanya `total_price`, ke 2 desimal dengan aturan half-up.
 
 ### POST /api/v1/items/process
 
-Hanya angka JSON yang diterima. String dan `null` ditolak. `total_price` dari client diabaikan.
-
-Request:
+Endpoint ini hanya menerima angka JSON. String dan `null` ditolak. Kalau client ikut mengirim `total_price`, nilainya diabaikan.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/items/process \
@@ -231,7 +220,7 @@ Response `201`:
 }
 ```
 
-Contoh error `400` (volume berupa string):
+Kalau `volume` dikirim sebagai string, hasilnya `400` seperti ini:
 
 ```json
 {
@@ -246,9 +235,7 @@ Contoh error `400` (volume berupa string):
 
 ### POST /api/v1/webhook/ingest
 
-Simulasi payload dari layanan pihak ketiga. Berbeda dengan endpoint di atas, angka boleh dikirim sebagai angka JSON atau string desimal (`"12.50"`), karena banyak sistem eksternal mengirim angka sebagai string. String divalidasi apa adanya tanpa dikonversi ke floating point, sehingga `"12.50000000000000000001"` tetap ditolak. Hanya event `line_items.created` yang didukung.
-
-Request:
+Endpoint ini meniru payload dari layanan pihak ketiga. Bedanya dengan endpoint di atas, angka boleh dikirim sebagai angka JSON atau string desimal seperti `"12.50"`, karena banyak sistem luar memang mengirim angka dalam bentuk string. String diperiksa apa adanya tanpa dikonversi ke floating point, jadi `"12.50000000000000000001"` tetap ditolak. Event yang didukung baru `line_items.created`.
 
 ```bash
 curl -X POST http://localhost:3000/api/v1/webhook/ingest \
@@ -267,17 +254,17 @@ curl -X POST http://localhost:3000/api/v1/webhook/ingest \
   }'
 ```
 
-Transformasi sebelum disimpan:
+Sebelum disimpan, payload dipetakan ke kolom `line_items` seperti ini:
 
-| Payload | Kolom `line_items` | Transformasi |
+| Payload | Kolom | Perlakuan |
 |---|---|---|
 | `data.projectId` | `project_id` | |
-| `itemCode` | `item_code` | trim dan huruf kapital |
-| `itemDescription` | `description` | trim |
-| `qty` | `volume` | angka atau string desimal, divalidasi dengan aturan angka di atas |
-| `uom` | `unit` | trim, opsional |
+| `itemCode` | `item_code` | di-trim, diubah ke huruf kapital |
+| `itemDescription` | `description` | di-trim |
+| `qty` | `volume` | angka atau string desimal, aturannya sama dengan di atas |
+| `uom` | `unit` | di-trim, opsional |
 | `price` | `unit_price` | sama seperti `qty` |
-| (dihitung) | `total_price` | `qty x price`, dibulatkan half-up 2 desimal |
+| (dihitung) | `total_price` | `qty x price`, dibulatkan half-up ke 2 desimal |
 
 Response `201`:
 
@@ -319,35 +306,41 @@ Response `201`:
 
 ### Postman
 
-Impor `docs/postman_collection.json`. Isi variabel koleksi `apiSecret` dengan nilai `API_SECRET` dari `.env`. Variabel `projectId` sudah berisi id project dari seed. Setiap request memiliki assertion sederhana (status code dan nilai total).
+Import `docs/postman_collection.json`, lalu isi variabel `apiSecret` dengan nilai `API_SECRET` dari `.env`. Variabel `projectId` sudah terisi id dari seed. Setiap request punya assertion sederhana untuk status code dan nilai total.
 
-## Pengujian
+## Test
 
 ```
 npm test
 ```
 
-| Berkas | Cakupan |
+| File | Yang dicek |
 |---|---|
-| `money.test.ts` | Kasus presisi: `0.1 x 0.2`, `1.005 x 1`, `2.675 x 1`, nilai maksimum, pembulatan half-up |
-| `money-exactness.test.ts` | 20.000 input acak dibandingkan dengan aritmetika integer `BigInt` sebagai pembanding independen. Selisih yang diizinkan: 0. |
-| `amount-schema.test.ts`, `items-schema.test.ts` | Aturan validasi angka dan payload |
-| `items-process.test.ts`, `webhook-ingest.test.ts` | Endpoint end-to-end (autentikasi, validasi, kalkulasi, transformasi, error) dengan repository di-mock |
-| `line-items-repository.test.ts` | Pemetaan error database (misalnya foreign key menjadi 404) |
-| `error-handling.test.ts`, `health.test.ts` | Format error, 404, JSON rusak, 500 tanpa membocorkan detail |
+| `money.test.ts` | kasus presisi seperti `0.1 x 0.2`, `1.005 x 1`, `2.675 x 1`, nilai maksimum, dan pembulatan half-up |
+| `money-exactness.test.ts` | 20.000 input acak dibandingkan dengan hasil hitungan integer `BigInt`, selisih yang diizinkan 0 |
+| `amount-schema.test.ts`, `items-schema.test.ts` | aturan validasi angka dan payload |
+| `items-process.test.ts`, `webhook-ingest.test.ts` | endpoint dari auth sampai response, dengan repository di-mock |
+| `line-items-repository.test.ts` | pemetaan error database, misalnya foreign key jadi 404 |
+| `error-handling.test.ts`, `health.test.ts` | format error, 404, JSON rusak, dan 500 yang tidak membocorkan detail |
 
-## Keputusan desain
+## Catatan desain
 
-- **decimal.js untuk kalkulasi.** `number` JavaScript tidak eksak: `1.005 * 1` dibulatkan menjadi `1.00` oleh `toFixed(2)`, bukan `1.01`. Seluruh kalkulasi memakai desimal, dan nilai uang diteruskan sebagai string.
-- **Penyimpanan atomic.** `supabase-js` tidak mendukung transaksi multi-statement, jadi penyisipan item dan audit log dilakukan dalam satu fungsi PostgreSQL yang dipanggil lewat RPC.
-- **Angka dikembalikan sebagai teks oleh database.** PostgREST mengirim `numeric` sebagai angka JSON, yang kehilangan presisi untuk nilai besar saat di-parse JavaScript. Fungsi database mengonversi kolom uang ke teks sebelum dikembalikan.
-- **Total dijaga dua lapis.** Backend menghitung total, dan constraint di database menolak baris yang totalnya tidak sama dengan `round(volume * unit_price, 2)`.
-- **Perbandingan token tahan timing attack.** Token dan nilai yang diharapkan di-hash dengan SHA-256, lalu dibandingkan dengan `timingSafeEqual`.
-- **Secret hanya di environment.** `.env` diabaikan oleh git, dan `.env.example` hanya berisi placeholder.
-- **Paket `ws`.** `supabase-js` membutuhkan implementasi WebSocket saat dijalankan di Node di bawah versi 22, jadi `ws` diberikan sebagai transport realtime. Fitur realtime sendiri tidak dipakai.
+**decimal.js.** `number` di JavaScript tidak eksak. Contohnya `1.005 * 1` yang dibulatkan dengan `toFixed(2)` hasilnya `1.00`, padahal seharusnya `1.01`. Makanya semua hitungan pakai decimal, dan nilai uang dioper sebagai string dari awal sampai akhir.
 
-## Batasan
+**Insert lewat fungsi database.** `supabase-js` tidak punya transaksi multi-statement. Biar item dan audit log tidak mungkin tersimpan setengah-setengah, keduanya diinsert di satu fungsi PostgreSQL yang dipanggil lewat RPC.
 
-- Webhook tidak idempoten. Event yang sama yang dikirim dua kali akan menyimpan item dua kali. `eventId` hanya dicatat di `audit_logs`.
+**Angka dikembalikan sebagai teks.** PostgREST mengirim kolom `numeric` sebagai angka JSON, dan angka besar bisa kehilangan presisi saat di-parse di JavaScript. Karena itu fungsi database mengubah kolom uang jadi teks sebelum dikembalikan. Itulah isi migration kedua.
+
+**Total dicek dua kali.** Backend yang menghitung, lalu constraint di database menolak baris yang `total_price`-nya tidak sama dengan `round(volume * unit_price, 2)`.
+
+**Perbandingan token.** Token dan secret di-hash dengan SHA-256 dulu, baru dibandingkan memakai `timingSafeEqual`.
+
+**Paket `ws`.** `supabase-js` butuh implementasi WebSocket kalau jalan di Node di bawah versi 22. Fitur realtime-nya sendiri tidak dipakai.
+
+**Secret.** `.env` sudah ada di `.gitignore`, dan `.env.example` hanya berisi placeholder.
+
+## Keterbatasan
+
+- Webhook belum idempoten. Kalau event yang sama terkirim dua kali, itemnya ikut tersimpan dua kali. `eventId` baru sebatas dicatat di `audit_logs`.
 - Maksimal 500 item per request.
-- Test endpoint memakai repository tiruan. Pemanggilan ke Supabase yang sesungguhnya diuji manual lewat Postman atau curl.
+- Test endpoint memakai repository tiruan. Pemanggilan ke Supabase yang sebenarnya baru dicoba manual lewat Postman atau curl.
