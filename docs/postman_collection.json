@@ -1,0 +1,341 @@
+{
+  "info": {
+    "name": "Items API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiSecret}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "apiSecret",
+      "value": ""
+    },
+    {
+      "key": "projectId",
+      "value": "0b8f6d6e-5c1a-4c3e-9a57-2f6a1d3b7e10"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Process items",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const data = pm.response.json().data;",
+              "pm.test('grand_total is exact', () => pm.expect(data.grand_total).to.eql('24679.03'));",
+              "pm.test('totals are exact', () => pm.expect(data.items.map((i) => i.total_price)).to.eql(['0.02', '24679.01']));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"items\": [\n    {\n      \"item_code\": \"A-001\",\n      \"description\": \"Excavation\",\n      \"volume\": 0.1,\n      \"unit_price\": 0.2\n    },\n    {\n      \"item_code\": \"A-002\",\n      \"description\": \"Concrete\",\n      \"volume\": 1234.5678,\n      \"unit\": \"m3\",\n      \"unit_price\": 19.99\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/process",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            "process"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Process items - invalid volume type",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('error code', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"items\": [\n    {\n      \"item_code\": \"A-001\",\n      \"description\": \"Excavation\",\n      \"volume\": \"10\",\n      \"unit_price\": 0.2\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/process",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            "process"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Process items - without credentials",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 401', () => pm.response.to.have.status(401));",
+              "pm.test('error code', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"project_id\": \"{{projectId}}\",\n  \"items\": [\n    {\n      \"item_code\": \"A-001\",\n      \"description\": \"Excavation\",\n      \"volume\": 0.1,\n      \"unit_price\": 0.2\n    },\n    {\n      \"item_code\": \"A-002\",\n      \"description\": \"Concrete\",\n      \"volume\": 1234.5678,\n      \"unit\": \"m3\",\n      \"unit_price\": 19.99\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/items/process",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "items",
+            "process"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook ingest",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 201', () => pm.response.to.have.status(201));",
+              "const data = pm.response.json().data;",
+              "pm.test('grand_total is exact', () => pm.expect(data.grand_total).to.eql('1875000.02'));",
+              "pm.test('item_code is normalised', () => pm.expect(data.items[0].item_code).to.eql('A-001'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event\": \"line_items.created\",\n  \"eventId\": \"evt_20261009_001\",\n  \"data\": {\n    \"projectId\": \"{{projectId}}\",\n    \"lineItems\": [\n      {\n        \"itemCode\": \"a-001\",\n        \"itemDescription\": \"Excavation\",\n        \"qty\": \"12.50\",\n        \"uom\": \"m3\",\n        \"price\": \"150000.00\"\n      },\n      {\n        \"itemCode\": \"B-002\",\n        \"itemDescription\": \"Formwork\",\n        \"qty\": 0.1,\n        \"price\": \"0.20\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/webhook/ingest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "webhook",
+            "ingest"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook ingest - negative qty",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 400', () => pm.response.to.have.status(400));",
+              "pm.test('error code', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event\": \"line_items.created\",\n  \"eventId\": \"evt_20261009_001\",\n  \"data\": {\n    \"projectId\": \"{{projectId}}\",\n    \"lineItems\": [\n      {\n        \"itemCode\": \"A-001\",\n        \"itemDescription\": \"Excavation\",\n        \"qty\": \"-5\",\n        \"price\": \"10.00\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/webhook/ingest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "webhook",
+            "ingest"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook ingest - without credentials",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status is 401', () => pm.response.to.have.status(401));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"event\": \"line_items.created\",\n  \"eventId\": \"evt_20261009_001\",\n  \"data\": {\n    \"projectId\": \"{{projectId}}\",\n    \"lineItems\": [\n      {\n        \"itemCode\": \"a-001\",\n        \"itemDescription\": \"Excavation\",\n        \"qty\": \"12.50\",\n        \"uom\": \"m3\",\n        \"price\": \"150000.00\"\n      },\n      {\n        \"itemCode\": \"B-002\",\n        \"itemDescription\": \"Formwork\",\n        \"qty\": 0.1,\n        \"price\": \"0.20\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/webhook/ingest",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "webhook",
+            "ingest"
+          ]
+        }
+      }
+    }
+  ]
+}
