@@ -32,3 +32,41 @@ create index audit_logs_created_at_idx on public.audit_logs (created_at desc);
 alter table public.projects enable row level security;
 alter table public.line_items enable row level security;
 alter table public.audit_logs enable row level security;
+
+create function public.insert_line_items_with_audit(
+  p_project_id uuid,
+  p_items jsonb,
+  p_action text,
+  p_endpoint text,
+  p_summary jsonb
+)
+returns setof public.line_items
+language plpgsql
+set search_path = ''
+as $$
+begin
+  insert into public.audit_logs (action, endpoint, payload_summary)
+  values (p_action, p_endpoint, p_summary);
+
+  return query
+  with inserted as (
+    insert into public.line_items (project_id, item_code, description, volume, unit, unit_price, total_price)
+    select p_project_id, i.item_code, i.description, i.volume, i.unit, i.unit_price, i.total_price
+    from jsonb_to_recordset(p_items) as i(
+      item_code text,
+      description text,
+      volume numeric,
+      unit text,
+      unit_price numeric,
+      total_price numeric
+    )
+    returning *
+  )
+  select * from inserted;
+end;
+$$;
+
+revoke execute on function public.insert_line_items_with_audit(uuid, jsonb, text, text, jsonb)
+  from public, anon, authenticated;
+grant execute on function public.insert_line_items_with_audit(uuid, jsonb, text, text, jsonb)
+  to service_role;
